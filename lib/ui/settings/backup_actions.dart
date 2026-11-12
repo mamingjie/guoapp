@@ -1,37 +1,21 @@
-import 'dart:convert';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app_build.dart';
 import '../../local_store.dart';
+import '../../platform_files.dart';
 import '../users/password_dialog.dart';
 import '../widgets/focus_ring.dart';
 
 Future<String?> exportBackupFile(LocalStore store) async {
   final content = await store.exportBackup();
-  final saved = await FilePicker.saveFile(
-    fileName:
-        '$appSlug-backup-${DateTime.now().toIso8601String().substring(0, 10)}.json',
-    bytes: Uint8List.fromList(utf8.encode(content)),
-    mimeType: 'application/json',
+  final saved = await PlatformFiles.saveText(
+    '$appSlug-backup-${DateTime.now().toIso8601String().substring(0, 10)}.json',
+    content,
   );
-  return saved == null ? null : '备份已保存';
+  return saved ? '备份已保存' : null;
 }
 
-Future<String?> _pickBackup() async {
-  final file = await FilePicker.pickFile(
-    type: FileType.custom,
-    allowedExtensions: ['json'],
-  );
-  if (file == null) return null;
-  final size = await file.length();
-  if (size == null || size > 8 * 1024 * 1024) {
-    throw const FormatException('备份文件过大或无法读取');
-  }
-  return utf8.decode(await file.readAsBytes());
-}
+Future<String?> _pickBackup() => PlatformFiles.pickText();
 
 Future<String?> restoreBackupFile(
   BuildContext context,
@@ -80,12 +64,8 @@ Future<String?> recoverBackupFile(
 
 Future<String?> exportRecoveryFile(LocalStore store) async {
   final content = await store.exportRecoveryData();
-  final saved = await FilePicker.saveFile(
-    fileName: '$appSlug-recovery.json',
-    bytes: Uint8List.fromList(utf8.encode(content)),
-    mimeType: 'application/json',
-  );
-  return saved == null ? null : '原始配置已保存';
+  final saved = await PlatformFiles.saveText('$appSlug-recovery.json', content);
+  return saved ? '原始配置已保存' : null;
 }
 
 Future<bool?> _confirm(

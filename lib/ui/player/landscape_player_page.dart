@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
+import '../../player/app_player.dart';
 
 import '../../app_device.dart';
 import '../../local_store.dart';
@@ -58,7 +58,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
     _Panel.quality: LayerLink(),
     _Panel.fit: LayerLink(),
   };
-  Player? _bound;
+  AppPlayer? _bound;
   Timer? _hideTimer;
   Timer? _tapTimer;
   Timer? _streakTimer;
@@ -435,7 +435,6 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
       children: [
         PlayerVideo(
           key: ValueKey(session.player),
-          handle: widget.handle,
           player: session.player,
           fit: session.videoFit,
         ),

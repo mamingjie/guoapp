@@ -15,8 +15,9 @@ import 'playback_loader.dart';
 import 'playback_preferences.dart';
 import 'playback_preloader.dart';
 import 'playback_recovery.dart';
+import 'player/app_player.dart';
 
-Size? videoDisplaySize(VideoParams parameters) {
+Size? videoDisplaySize(AppVideoParams parameters) {
   final width = (parameters.dw ?? 0) > 0 ? parameters.dw! : parameters.w ?? 0;
   final height = (parameters.dh ?? 0) > 0 ? parameters.dh! : parameters.h ?? 0;
   if (width <= 0 || height <= 0) return null;
@@ -39,12 +40,14 @@ class PlaybackSession extends ChangeNotifier {
     required this.repository,
     required this.store,
     required this.detail,
-    required this._player,
-    this._standby,
+    required AppPlayer player,
+    AppPlayer? standby,
     required int index,
     double position = 0,
     bool autoplay = true,
-  }) : _engaged = autoplay,
+  }) : _player = player,
+       _standby = standby,
+       _engaged = autoplay,
        _index = index,
        _epoch = store.profileEpoch {
     final preferences = store.playbackPreferences;
@@ -120,8 +123,8 @@ class PlaybackSession extends ChangeNotifier {
   final AppRepository repository;
   final LocalStore store;
   DramaDetail detail;
-  Player _player;
-  Player? _standby;
+  AppPlayer _player;
+  AppPlayer? _standby;
   late final DanmakuController danmaku;
   late final PlaybackLoader _loader;
   late final PlaybackPreloader _preloader;
@@ -179,9 +182,9 @@ class PlaybackSession extends ChangeNotifier {
   double _resumePosition = 0;
   double _unmutedVolume = 100;
 
-  Player get player => _player;
+  AppPlayer get player => _player;
 
-  Player? get standby => _standbyOpen ? _standby : null;
+  AppPlayer? get standby => _standbyOpen ? _standby : null;
   int get standbyIndex => _standbyOpen ? _standbyIndex : -1;
   int get index => _index;
   Episode get episode => detail.episodes[_index];
@@ -538,7 +541,7 @@ class PlaybackSession extends ChangeNotifier {
     return next;
   }
 
-  Future<void> _configure(Player target, PlaybackPlan plan) async {
+  Future<void> _configure(AppPlayer target, PlaybackPlan plan) async {
     final platform = target.platform;
     if (platform is! NativePlayer) return;
     final hwdec = switch (store.playbackPreferences.televisionDecoder) {
@@ -671,13 +674,11 @@ class PlaybackSession extends ChangeNotifier {
         installed = true;
         _acceptErrors = true;
         await player.open(
-          Media(
-            plan.url,
-            httpHeaders: plan.headers,
-            start: position > 0
-                ? Duration(milliseconds: (position * 1000).round())
-                : null,
-          ),
+          plan.url,
+          headers: plan.headers,
+          start: position > 0
+              ? Duration(milliseconds: (position * 1000).round())
+              : null,
           play: _foreground && _playIntent,
         );
         if (!_current(ticket)) return;
@@ -789,15 +790,12 @@ class PlaybackSession extends ChangeNotifier {
     unawaited(_open(standby, plan));
   }
 
-  Future<void> _open(Player standby, PlaybackPlan plan) async {
+  Future<void> _open(AppPlayer standby, PlaybackPlan plan) async {
     try {
       await _configure(standby, plan);
       await _limitCache(standby, true);
       await _selectAudio(standby, false);
-      await standby.open(
-        Media(plan.url, httpHeaders: plan.headers),
-        play: false,
-      );
+      await standby.open(plan.url, headers: plan.headers, play: false);
     } catch (_) {
       if (identical(_standbyPlan, plan)) _dropStandby();
       return;
@@ -818,7 +816,7 @@ class PlaybackSession extends ChangeNotifier {
     if (plan != null) unawaited(_release(plan.session));
   }
 
-  Future<void> _limitCache(Player target, bool limited) async {
+  Future<void> _limitCache(AppPlayer target, bool limited) async {
     final platform = target.platform;
     if (platform is! NativePlayer) return;
     await platform.setProperty(
@@ -838,7 +836,7 @@ class PlaybackSession extends ChangeNotifier {
     }
   }
 
-  Future<void> _selectAudio(Player target, bool enabled) async {
+  Future<void> _selectAudio(AppPlayer target, bool enabled) async {
     final platform = target.platform;
     if (platform is! NativePlayer || !Platform.isIOS) return;
     await platform.setProperty('aid', enabled ? 'auto' : 'no');

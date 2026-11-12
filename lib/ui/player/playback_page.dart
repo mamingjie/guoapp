@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
+import '../../player/app_player.dart';
 
 import '../../app_device.dart';
 import '../../local_store.dart';
@@ -34,7 +34,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
   late bool _wideVideo = _measure();
   MediaQueryData? _media;
   bool _shown = false;
-  Player? _bound;
+  AppPlayer? _bound;
   StreamSubscription<bool>? _playing;
 
   PlaybackSession get _session => widget.handle.session;

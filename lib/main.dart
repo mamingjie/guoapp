@@ -19,6 +19,7 @@ import 'portable_data.dart';
 import 'ui/app.dart';
 import 'ui/theme/app_theme.dart';
 import 'window_frame.dart';
+import 'platform_target.dart';
 import 'windows_data_migration.dart';
 
 Future<void> main() async {
@@ -26,6 +27,15 @@ Future<void> main() async {
   if (Platform.isAndroid) {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(AppTheme.systemBars(Brightness.dark));
+  }
+  if (isOhos) {
+    // 鸿蒙的边到边由 FlutterAbility 自己处理；这里只是兜底，
+    // 必须带超时：平台侧拿不到顶层窗口时不会回消息，await 会永久挂起。
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.edgeToEdge,
+      ).timeout(const Duration(seconds: 2)).catchError((Object _) {}),
+    );
   }
   if (Platform.isWindows) {
     enablePortableData();
@@ -49,7 +59,7 @@ Future<void> main() async {
       );
     } catch (_) {}
   }
-  MediaKit.ensureInitialized();
+  if (!useSystemPlayer) MediaKit.ensureInitialized();
   final device = await AppDevice.detect();
   final rendering = Platform.isAndroid
       ? ', 渲染: ${await AppDevice.compatibleRendering() ? 'skia' : 'impeller'}'

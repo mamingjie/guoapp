@@ -10,6 +10,12 @@ import 'widgets/form_text_field.dart';
 
 const termsVersion = 1;
 const _confirmation = '我已确认并同意以上使用条款';
+
+/// 自动化冒烟测试用：确认语是中文，`uitest uiInput` 只能注入 ASCII，
+/// 模拟器里没法把这句话打进去。加 `--dart-define=GUO_SKIP_TERMS=true`
+/// 构建时可以绕过这一步，正常构建不受影响。
+const _skipConfirmation = bool.fromEnvironment('GUO_SKIP_TERMS');
+
 const _clauses = [
   '$appName 是开源软件，框架与示例站源代码公开，仅供个人学习与技术研究，**不收费，不提供任何付费服务**。',
   '$appName 与红果短剧及其他各站源的运营方**无任何关联**，未获得其授权或认可；文中提到的名称和商标归各自权利人所有。',
@@ -56,6 +62,7 @@ class _TermsPageState extends State<TermsPage> {
   bool get _reading => _remaining > 0;
 
   bool get _confirmed =>
+      _skipConfirmation ||
       _typed.text.replaceAll(RegExp(r'\s'), '') == _confirmation;
 
   Future<void> _accept() async {

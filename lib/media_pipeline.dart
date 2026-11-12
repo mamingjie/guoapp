@@ -6,6 +6,7 @@ import 'package:ffmpeg_kit_flutter_new_min_gpl/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_min_gpl/return_code.dart';
 
 import 'core_bridge.dart';
+import 'platform_target.dart';
 
 class MediaProbe {
   MediaProbe(this.raw);
@@ -42,8 +43,16 @@ class FFmpegExecutor implements MediaExecutor {
   int? _session;
   bool _cancelled = false;
 
+  // 鸿蒙目前没有 FFmpeg 预编译包，直接给明确失败，避免调用空实现后一直不回调。
+  static void _unsupported() {
+    if (isOhos) {
+      throw AppFailure('鸿蒙版暂不支持本地转码，已保留原始分片文件。');
+    }
+  }
+
   @override
   Future<MediaProbe> probe(String file) async {
+    _unsupported();
     final session = await FFprobeKit.getMediaInformationFromCommandArguments([
       '-v',
       'error',
@@ -68,6 +77,7 @@ class FFmpegExecutor implements MediaExecutor {
     double duration = 0,
     void Function(double)? progress,
   }) async {
+    _unsupported();
     _cancelled = false;
     final finished = Completer<AppFailure?>();
     final session = await FFmpegKit.executeWithArgumentsAsync(

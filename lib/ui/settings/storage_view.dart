@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../app_device.dart';
 import '../../core_bridge.dart';
 import '../../local_store.dart';
+import '../../platform_target.dart';
 import '../app_scope.dart';
 import '../widgets/focus_ring.dart';
 import '../widgets/group_card.dart';
@@ -58,7 +59,10 @@ class _StorageViewState extends State<StorageView> {
   }
 
   Future<String?> _pickParent() async {
-    if (!Platform.isAndroid && !Platform.isIOS) {
+    // 鸿蒙没有目录选择器（file_picker 也没有实现），
+    // 但沙箱外的目录在不申请受限权限时不可写，
+    // 所以直接让用户在应用自身的目录里选，和 Android 的做法一致。
+    if (!Platform.isAndroid && !Platform.isIOS && !isOhos) {
       return FilePicker.getDirectoryPath(dialogTitle: '选择下载保存位置');
     }
     final support = await getApplicationSupportDirectory();
@@ -70,6 +74,9 @@ class _StorageViewState extends State<StorageView> {
             ? '设备共享存储（应用目录）'
             : 'SD 卡 ${index + 1}（应用目录）';
       }
+    } else if (isOhos) {
+      final documents = await getApplicationDocumentsDirectory();
+      directories[documents.path] = '应用文件目录';
     } else {
       final documents = await getApplicationDocumentsDirectory();
       directories[documents.path] = '文件 App 可见目录';

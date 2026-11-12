@@ -1,11 +1,21 @@
 import 'dart:async';
 
-import 'package:media_kit/media_kit.dart';
+import 'package:flutter/widgets.dart';
 
-class FakePlayer implements Player {
+import 'package:duanju_app/player/app_player.dart';
+
+class OpenedMedia {
+  const OpenedMedia(this.uri, {this.start, this.headers});
+
+  final String uri;
+  final Duration? start;
+  final Map<String, String>? headers;
+}
+
+class FakePlayer implements AppPlayer {
   @override
-  PlayerState state = const PlayerState();
-  final opened = <Media>[];
+  AppPlayerState state = const AppPlayerState();
+  final opened = <OpenedMedia>[];
   final rates = <double>[];
   final seeks = <Duration>[];
   var stops = 0;
@@ -14,40 +24,28 @@ class FakePlayer implements Player {
   final _completed = StreamController<bool>.broadcast(sync: true);
   final _position = StreamController<Duration>.broadcast(sync: true);
   final _duration = StreamController<Duration>.broadcast(sync: true);
-  final _videoParams = StreamController<VideoParams>.broadcast(sync: true);
+  final _buffer = StreamController<Duration>.broadcast(sync: true);
+  final _rate = StreamController<double>.broadcast(sync: true);
+  final _volume = StreamController<double>.broadcast(sync: true);
+  final _videoParams = StreamController<AppVideoParams>.broadcast(sync: true);
   final _error = StreamController<String>.broadcast(sync: true);
   final _buffering = StreamController<bool>.broadcast(sync: true);
 
   @override
-  PlatformPlayer? platform;
+  Object? get platform => null;
 
   @override
-  late final PlayerStream stream = PlayerStream(
-    const Stream.empty(),
-    _playing.stream,
-    _completed.stream,
-    _position.stream,
-    _duration.stream,
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    _buffering.stream,
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    _videoParams.stream,
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    const Stream.empty(),
-    _error.stream,
+  late final AppPlayerStream stream = AppPlayerStream(
+    playing: _playing.stream,
+    completed: _completed.stream,
+    position: _position.stream,
+    duration: _duration.stream,
+    buffering: _buffering.stream,
+    buffer: _buffer.stream,
+    rate: _rate.stream,
+    volume: _volume.stream,
+    error: _error.stream,
+    videoParams: _videoParams.stream,
   );
 
   void progress(Duration position, {Duration? duration}) {
@@ -75,16 +73,23 @@ class FakePlayer implements Player {
     _buffering.add(buffering);
   }
 
-  void resize(int width, int height) =>
-      _videoParams.add(VideoParams(w: width, h: height));
+  void resize(int width, int height) {
+    state = state.copyWith(width: width);
+    _videoParams.add(AppVideoParams(w: width, h: height));
+  }
 
   @override
-  Future<void> open(Playable playable, {bool play = true}) async {
-    opened.add(playable as Media);
+  Future<void> open(
+    String url, {
+    Map<String, String>? headers,
+    Duration? start,
+    bool play = true,
+  }) async {
+    opened.add(OpenedMedia(url, start: start, headers: headers));
     state = state.copyWith(
       playing: play,
       completed: false,
-      position: playable.start ?? Duration.zero,
+      position: start ?? Duration.zero,
     );
     _playing.add(play);
   }
@@ -120,11 +125,13 @@ class FakePlayer implements Player {
   Future<void> setRate(double rate) async {
     rates.add(rate);
     state = state.copyWith(rate: rate);
+    _rate.add(rate);
   }
 
   @override
   Future<void> setVolume(double volume) async {
     state = state.copyWith(volume: volume);
+    _volume.add(volume);
   }
 
   @override
@@ -133,5 +140,11 @@ class FakePlayer implements Player {
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  Widget buildVideo() => const SizedBox.shrink();
+
+  @override
+  bool get supportsOutputSize => false;
+
+  @override
+  Future<void> setOutputSize({required int width, required int height}) async {}
 }

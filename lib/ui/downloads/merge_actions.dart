@@ -8,6 +8,7 @@ import '../../app_device.dart';
 import '../../core_bridge.dart';
 import '../../merge_queue.dart';
 import '../../models.dart';
+import '../../platform_target.dart';
 
 Future<bool> enqueueMerges(
   BuildContext context,
@@ -45,7 +46,7 @@ Future<bool> enqueueMerges(
 }
 
 Future<List<String?>?> _destinations(List<List<DownloadJob>> groups) async {
-  if (Platform.isAndroid) {
+  if (Platform.isAndroid || isOhos) {
     if (!await AppDevice.requestVideoExport()) {
       throw AppFailure('未获得存储权限，无法保存合并视频');
     }

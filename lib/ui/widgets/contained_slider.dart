@@ -51,11 +51,7 @@ class ContainedSlider extends StatelessWidget {
       onIncrease: enabled ? () => _adjust(current + step) : null,
       onDecrease: enabled ? () => _adjust(current - step) : null,
       child: ExcludeSemantics(
-        child: Overlay.wrap(
-          clipBehavior: Clip.none,
-          alwaysSizeToContent: true,
-          child: slider,
-        ),
+        child: Overlay.wrap(clipBehavior: Clip.none, child: slider),
       ),
     );
   }

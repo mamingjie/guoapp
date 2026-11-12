@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'core_bridge.dart';
+import 'platform_target.dart';
 
 class AppDevice {
   const AppDevice({this.television = false, this.version = ''});
@@ -17,7 +18,7 @@ class AppDevice {
   static Future<AppDevice> detect({
     AppDevice fallback = const AppDevice(),
   }) async {
-    if (defaultTargetPlatform != TargetPlatform.android) {
+    if (defaultTargetPlatform != TargetPlatform.android && !isOhos) {
       try {
         final info = await PackageInfo.fromPlatform();
         return AppDevice(version: info.version);
@@ -73,7 +74,7 @@ class AppDevice {
       _televisionMode = enabled;
       return setPlayerOrientation(PlayerOrientation.auto);
     }
-    if (defaultTargetPlatform != TargetPlatform.android) return;
+    if (defaultTargetPlatform != TargetPlatform.android && !isOhos) return;
     try {
       await channel.invokeMethod<void>('setTelevisionMode', {
         'enabled': enabled,
@@ -93,7 +94,7 @@ class AppDevice {
   static Future<void> setPlayerOrientation(
     PlayerOrientation orientation,
   ) async {
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.android || isOhos) {
       try {
         await channel.invokeMethod<void>('setPlayerOrientation', {
           'mode': orientation.name,

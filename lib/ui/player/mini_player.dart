@@ -20,7 +20,6 @@ bool playerVisible(AppLifecycleState? state) =>
 
 Widget _video(PlaybackHandle handle) => PlayerVideo(
   key: ValueKey(handle.session.player),
-  handle: handle,
   player: handle.session.player,
 );
 

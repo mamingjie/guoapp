@@ -1,36 +1,24 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
-import 'playback_handle.dart';
+import '../../player/app_player.dart';
 
 class PlayerVideo extends StatelessWidget {
   const PlayerVideo({
     super.key,
-    required this.handle,
     required this.player,
     this.fit = VideoFit.auto,
   });
-  final PlaybackHandle handle;
-  final Player player;
+  final AppPlayer player;
   final VideoFit fit;
 
   @override
   Widget build(BuildContext context) {
-    final controller = handle.video(player);
-    final video = Video(
-      controller: controller,
-      controls: NoVideoControls,
-      fill: Colors.black,
-      fit: BoxFit.fill,
-      pauseUponEnteringBackgroundMode: false,
-    );
+    final video = player.buildVideo();
     final ratio = MediaQuery.devicePixelRatioOf(context);
     return ColoredBox(
       color: Colors.black,
@@ -40,7 +28,9 @@ class PlayerVideo extends StatelessWidget {
         builder: (context, snapshot) => LayoutBuilder(
           builder: (context, constraints) {
             final box = constraints.biggest;
-            final source = videoDisplaySize(snapshot.requireData);
+            final source = videoDisplaySize(
+              snapshot.data ?? AppVideoParams.none,
+            );
             final size = source == null || !box.isFinite || box.isEmpty
                 ? box
                 : fit.size(box, source, ratio);
@@ -54,14 +44,12 @@ class PlayerVideo extends StatelessWidget {
               ),
             );
             final output = size * ratio;
-            if (!Platform.isWindows || !output.isFinite || output.isEmpty) {
+            if (!player.supportsOutputSize ||
+                !output.isFinite ||
+                output.isEmpty) {
               return sized;
             }
-            return _OutputSize(
-              controller: controller,
-              box: output,
-              child: sized,
-            );
+            return _OutputSize(player: player, box: output, child: sized);
           },
         ),
       ),
@@ -71,11 +59,11 @@ class PlayerVideo extends StatelessWidget {
 
 class _OutputSize extends StatefulWidget {
   const _OutputSize({
-    required this.controller,
+    required this.player,
     required this.box,
     required this.child,
   });
-  final VideoController controller;
+  final AppPlayer player;
   final Size box;
   final Widget child;
 
@@ -87,24 +75,23 @@ class _OutputSizeState extends State<_OutputSize> {
   @override
   void initState() {
     super.initState();
-    _VideoOutput.request(widget.controller, this, widget.box);
+    _VideoOutput.request(widget.player, this, widget.box);
   }
 
   @override
   void didUpdateWidget(_OutputSize oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      _VideoOutput.release(oldWidget.controller, this);
+    if (oldWidget.player != widget.player) {
+      _VideoOutput.release(oldWidget.player, this);
     }
-    if (oldWidget.controller != widget.controller ||
-        oldWidget.box != widget.box) {
-      _VideoOutput.request(widget.controller, this, widget.box);
+    if (oldWidget.player != widget.player || oldWidget.box != widget.box) {
+      _VideoOutput.request(widget.player, this, widget.box);
     }
   }
 
   @override
   void dispose() {
-    _VideoOutput.release(widget.controller, this);
+    _VideoOutput.release(widget.player, this);
     super.dispose();
   }
 
@@ -113,33 +100,31 @@ class _OutputSizeState extends State<_OutputSize> {
 }
 
 class _VideoOutput {
-  _VideoOutput(this.controller) {
-    _subscription = controller.player.stream.videoParams.listen(
-      (_) => _schedule(),
-    );
+  _VideoOutput(this.player) {
+    _subscription = player.stream.videoParams.listen((_) => _schedule());
   }
 
-  static final _outputs = <VideoController, _VideoOutput>{};
+  static final _outputs = <AppPlayer, _VideoOutput>{};
 
-  static void request(VideoController controller, Object owner, Size box) {
-    final output = _outputs[controller] ??= _VideoOutput(controller);
+  static void request(AppPlayer player, Object owner, Size box) {
+    final output = _outputs[player] ??= _VideoOutput(player);
     output._boxes[owner] = box;
     output._schedule();
   }
 
-  static void release(VideoController controller, Object owner) {
-    final output = _outputs[controller];
+  static void release(AppPlayer player, Object owner) {
+    final output = _outputs[player];
     if (output == null) return;
     output._boxes.remove(owner);
     if (output._boxes.isNotEmpty) return;
     output._timer?.cancel();
     unawaited(output._subscription.cancel());
-    _outputs.remove(controller);
+    _outputs.remove(player);
   }
 
-  final VideoController controller;
+  final AppPlayer player;
   final _boxes = <Object, Size>{};
-  late final StreamSubscription<VideoParams> _subscription;
+  late final StreamSubscription<AppVideoParams> _subscription;
   Timer? _timer;
 
   void _schedule() {
@@ -148,7 +133,7 @@ class _VideoOutput {
   }
 
   void _apply() {
-    final params = controller.player.state.videoParams;
+    final params = player.state.videoParams;
     final width = params.dw ?? params.w ?? 0;
     final height = params.dh ?? params.h ?? 0;
     if (width <= 0 || height <= 0 || _boxes.isEmpty) return;
@@ -159,8 +144,8 @@ class _VideoOutput {
           .reduce(math.max),
     );
     unawaited(
-      controller
-          .setSize(
+      player
+          .setOutputSize(
             width: math.max(1, (width * scale).round()),
             height: math.max(1, (height * scale).round()),
           )

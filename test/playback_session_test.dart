@@ -4,8 +4,8 @@ import 'package:duanju_app/core_bridge.dart';
 import 'package:duanju_app/local_store.dart';
 import 'package:duanju_app/models.dart';
 import 'package:duanju_app/playback_session.dart';
+import 'package:duanju_app/player/app_player.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:media_kit/media_kit.dart';
 
 import 'support/fake_player.dart';
 import 'support/fakes.dart';
@@ -300,7 +300,7 @@ void main() {
     player.resize(1920, 1080);
     expect(session.aspectRatio, closeTo(16 / 9, .001));
     expect(
-      videoDisplaySize(const VideoParams(w: 1920, h: 1080, rotate: 90)),
+      videoDisplaySize(const AppVideoParams(w: 1920, h: 1080, rotate: 90)),
       const Size(1080, 1920),
     );
   });

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
+import '../../player/app_player.dart';
 
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
@@ -55,7 +55,7 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
   final _options = <FocusNode>[];
   final _links = {for (final menu in _Menu.values) menu: LayerLink()};
   StreamSubscription<bool>? _playing;
-  Player? _bound;
+  AppPlayer? _bound;
   Timer? _hideTimer;
   Timer? _seekCommit;
   Timer? _seekDisplay;
@@ -437,7 +437,6 @@ class _TelevisionPlayerPageState extends State<TelevisionPlayerPage>
                   children: [
                     PlayerVideo(
                       key: ValueKey(_session.player),
-                      handle: widget.handle,
                       player: _session.player,
                       fit: _session.videoFit,
                     ),

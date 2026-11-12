@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
+import '../../player/app_player.dart';
 
 import '../../playback_preferences.dart';
 import '../../playback_session.dart';
@@ -73,7 +73,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
   double? _seekValue;
   double? _seekTarget;
   Timer? _seekTimer;
-  Player? _bound;
+  AppPlayer? _bound;
 
   PlaybackSession get _session => widget.handle.session;
 
@@ -315,7 +315,6 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
           children: [
             PlayerVideo(
               key: ValueKey(_session.player),
-              handle: widget.handle,
               player: _session.player,
               fit: _session.videoFit,
             ),
@@ -1015,7 +1014,7 @@ class PlaybackProgressBuilder extends StatefulWidget {
     required this.builder,
     this.active = true,
   });
-  final Player player;
+  final AppPlayer player;
   final WidgetBuilder builder;
   final bool active;
 

@@ -12,6 +12,7 @@ import 'diary_service.dart';
 import 'download_merge.dart';
 import 'media_pipeline.dart';
 import 'models.dart';
+import 'platform_target.dart';
 
 enum MergeState { queued, running, done, failed, cancelled }
 
@@ -215,7 +216,7 @@ Future<String> saveMerge(DownloadMerge merge, MergeTask task) async {
     await merge.write(file, file: file);
     return '已保存到「文件」App 里本应用的「合并视频」文件夹';
   }
-  if (!Platform.isAndroid) throw AppFailure('没有选择保存位置');
+  if (!Platform.isAndroid && !isOhos) throw AppFailure('没有选择保存位置');
   final folder = safeFileName(task.drama.title);
   final temporary = await (await getTemporaryDirectory()).createTemp('merge');
   try {
@@ -227,7 +228,7 @@ Future<String> saveMerge(DownloadMerge merge, MergeTask task) async {
       await temporary.delete(recursive: true);
     } catch (_) {}
   }
-  return '已保存到 Movies/$folder';
+  return isOhos ? '已保存到所选位置' : '已保存到 Movies/$folder';
 }
 
 String unusedMergeFile(String directory, String name) {
