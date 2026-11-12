@@ -1,0 +1,13 @@
+{
+  "modelVersion": "6.0.0",
+  "name": "duanju_app",
+  "version": "1.0.0",
+  "description": "红果鉴短剧 HarmonyOS 客户端",
+  "main": "",
+  "author": "guoapp",
+  "license": "",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.6"
+  }
+}
