@@ -7,6 +7,19 @@ coverage/
 
 native/build/
 android/app/src/main/jniLibs/
+ohos/entry/libs/
+ohos/entry/build/
+ohos/entry/oh_modules/
+ohos/oh_modules/
+ohos/.hvigor/
+ohos/build/
+ohos/local.properties
+ohos/har/
+ohos/entry/.preview/
+.ohos-sign/
+.tmp/
+# 上游 Actions 产出的发布包（用于复用编译好的站源核心，含数百 MB 二进制）
+source-releases/
 windows/runner/duanju_core.dll
 windows/runner/duanju_core.h
 ios/DuanjuCore/*.xcframework/
