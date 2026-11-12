@@ -9,7 +9,7 @@ Flutter 多端独立短剧 / 影视应用，手机、平板、电脑和电视分
 [![Release](https://img.shields.io/github/v/release/Xanerix/guoapp?style=flat-square&color=3d4656)](../../releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-3d4656?style=flat-square)](LICENSE)
 ![Flutter](https://img.shields.io/badge/Flutter-3.47.9-02569B?style=flat-square&logo=flutter&logoColor=white)
-![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Windows%20%7C%20macOS-8fa3bc?style=flat-square)
+![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Windows%20%7C%20macOS%20%7C%20HarmonyOS-8fa3bc?style=flat-square)
 
 [下载](#安装) · [功能](#功能) · [站源](#站源) · [隐私](#检查更新与使用统计) · [开发](#开发)
 

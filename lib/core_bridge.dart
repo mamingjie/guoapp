@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -20,6 +21,7 @@ import 'download_collections.dart';
 import 'resource_settings.dart';
 import 'diary_service.dart';
 import 'app_update.dart';
+import 'platform_target.dart';
 import 'sorani_account.dart';
 
 typedef _NativeRequest = Pointer<Utf8> Function(Pointer<Utf8>);
@@ -29,7 +31,7 @@ typedef _DartFree = void Function(Pointer<Utf8>);
 
 String _nativeRequest(String body) {
   final DynamicLibrary library;
-  if (Platform.isAndroid) {
+  if (Platform.isAndroid || isOhos) {
     library = DynamicLibrary.open('libduanju_core.so');
   } else if (Platform.isWindows) {
     library = DynamicLibrary.open(
@@ -38,8 +40,10 @@ String _nativeRequest(String body) {
   } else if (Platform.isIOS || Platform.isMacOS) {
     library = DynamicLibrary.process();
   } else {
-    throw UnsupportedError('当前支持 Android、iOS、Windows 和 macOS');
+    throw UnsupportedError('当前支持 Android、iOS、HarmonyOS、Windows 和 macOS');
   }
+  final shim = isOhos ? _ohosShim() : null;
+  shim?.enter();
   final request = library.lookupFunction<_NativeRequest, _DartRequest>(
     'DuanjuRequest',
   );
@@ -53,11 +57,45 @@ String _nativeRequest(String body) {
     }
     return output.toDartString();
   } finally {
-    malloc.free(input);
     if (output != nullptr) {
       free(output);
     }
+    malloc.free(input);
+    shim?.leave();
   }
+}
+
+typedef _VoidCall = Void Function();
+typedef _VoidCallDart = void Function();
+
+/// 鸿蒙兼容层里与「进 Go」相关的那几个函数。
+///
+/// `enter`/`leave` 负责在每个调用线程上把 Go 的 g 槽清零 —— 不做这件事的话，
+/// DartWorker 线程反复创建销毁会继承上一个线程残留的 g，进 Go 时跳过 needm
+/// 直接踩空指针（详见 ohos/entry/src/main/cpp/bionic_shim.c 第五节的推导）。
+class _OhosShim {
+  _OhosShim(DynamicLibrary shim) {
+    try {
+      _enter = shim.lookupFunction<_VoidCall, _VoidCallDart>('guoapp_tls_enter');
+      _leave = shim.lookupFunction<_VoidCall, _VoidCallDart>('guoapp_tls_leave');
+    } catch (error) {
+      debugPrint('guoapp: 兼容层没有 tls 入口（$error）');
+    }
+  }
+
+  _VoidCallDart? _enter;
+  _VoidCallDart? _leave;
+
+  void enter() => _enter?.call();
+  void leave() => _leave?.call();
+}
+
+_OhosShim? _ohosShimCache;
+
+_OhosShim _ohosShim() {
+  // 兼容层就是核心库 NEEDED 的 liblog.so，dlopen 拿到的和动态链接器加载的是
+  // 同一份实例，构造函数不会重跑。
+  return _ohosShimCache ??= _OhosShim(DynamicLibrary.open('liblog.so'));
 }
 
 class AppFailure implements Exception {
@@ -650,7 +688,10 @@ class NativeRepository extends AppRepository {
         );
       }
       throw AppFailure('站源响应超时，请重试');
-    } catch (_) {
+    } on StateError {
+      throw AppFailure('本地核心返回了空结果，请重新打开应用');
+    } catch (error) {
+      DiaryService.add('[Core] 调用 ${input['action']} 失败：$error');
       throw AppFailure('本地核心加载失败，请使用完整安装包重新安装');
     }
   }

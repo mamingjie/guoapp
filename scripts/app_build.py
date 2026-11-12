@@ -5,7 +5,9 @@ from pathlib import Path
 NATIVE_ROOT = Path(__file__).resolve().parents[1] / 'native'
 EXAMPLE_SOURCES = NATIVE_ROOT / 'sources_example'
 ENVIRONMENT_DEFINES = ['PROJECT_URL', 'TELEGRAM_GROUP_URL', 'TELEGRAM_CHANNEL_URL',
-                       'ZHENGUOJIAN_DISPLAY_NAME', 'ZHENGUOJIAN_LATIN_NAME']
+                       'ZHENGUOJIAN_DISPLAY_NAME', 'ZHENGUOJIAN_LATIN_NAME',
+                       # 冒烟测试用：跳过条款确认语的输入（中文没法用 uitest 注入）
+                       'GUO_SKIP_TERMS']
 
 
 @dataclass(frozen=True)

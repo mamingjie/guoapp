@@ -8,6 +8,7 @@ Flutter `3.47.9`、Dart `3.12+`、Go `1.24.1+`、Python `3.10+`。
 - Windows：Visual Studio C++ 桌面组件、MinGW-w64 x64、Inno Setup 6.5+（`winget install JRSoftware.InnoSetup`）
 - iOS：macOS、完整 Xcode、CocoaPods
 - macOS：完整 Xcode、CocoaPods，打 dmg 需 `pip install dmgbuild Pillow`；`xcode-select` 指向 Command Line Tools 时 `build_macos.py` 会自动改用 `/Applications/Xcode*.app`，也可以在系统层面执行 `sudo xcode-select -s`
+- 鸿蒙：DevEco Studio 26（内含 SDK API 26、Ohpm、hvigor、Node）、带 `enable-ohos` 的 OHOS 版 Flutter SDK、`OpenHarmony-SIG/ohos_golang_go` 的 Go fork（见[鸿蒙](#鸿蒙harmonyos)）
 
 构建脚本对子进程默认设置 `GOPROXY=https://goproxy.cn,direct`、`GOSUMDB=off`，同名环境变量可覆盖。
 
@@ -41,6 +42,63 @@ python3 scripts/build_ios.py --export-options /path/to/ExportOptions.plist
 产物在 `dist/android`、`dist/windows`、`dist/ios`、`dist/macos`，红果鉴以 `hongguojian-` 开头，全站源版以 `zhenguojian-` 开头。Windows 同时出便携 zip 和 Inno Setup 安装包（`windows/installer/setup.iss`，简体中文语言文件取自 Inno Setup 官方仓库），安装包以包名为 AppId，两个版本可同时安装，默认装到 `%LOCALAPPDATA%\Programs\<包名>`，安装时可提权改为所有用户，卸载窗口先显示「卸载选项」页（插在卸载进度窗口里），勾选「同时清除本地数据」才删除 `%APPDATA%\<包名>`（含默认下载目录），默认保留；静默卸载不删。macOS 出 arm64 + x86_64 通用 dmg；dmg 的安装窗口（背景图、图标位置、隐藏工具栏）由 `dmgbuild` 写入 `.DS_Store`，打包机需要 `pip install dmgbuild Pillow`，没装时会退回普通镜像并提示。默认 ad-hoc 签名，从网络下载的 dmg 在其他 Mac 上首次打开会被 Gatekeeper 拦一次（右键「打开」，或执行 `xattr -dr com.apple.quarantine /Applications/红果鉴.app`）。有 Developer ID 时用 `package_release.py --platform macos --identity "Developer ID Application: ..."` 重新打包并公证，才能免掉这一步。本机 Android 签名：红果鉴用 `android/key.properties`，全站源版用 `android/key-all-sources.properties`（均不入库）。
 
 其他脚本：`generate_brand_assets.py` 从 `brand_icon.svg` 生成各平台图标；`clear_app_data.py`、`clear_catalog_cache.py` 清理 Windows 上的应用数据和剧库缓存。
+
+## 鸿蒙（HarmonyOS）
+
+鸿蒙版以 `ohos/` 的 ArkTS 工程作宿主，Flutter 走 OHOS 版 Flutter SDK 的 embedding（`@ohos/flutter_ohos`）。`ohos/entry/src/main/module.json5` 同时声明 `phone`、`tablet`、`2in1`，平板由 `lib/ui/app_scope.dart` 的 `shortestSide >= 600` 判成 `FormFactor.pad`，复用平板分栏布局，不需要单独的平板界面代码。
+
+~~~sh
+python3 scripts/build_ohos.py --abi arm64-v8a               # 真机（手机 / 平板）
+python3 scripts/build_ohos.py --abi arm64-v8a --install     # 打完自动 hdc install
+python3 scripts/build_ohos.py --abi x86_64 --install        # 模拟器，只能验界面
+python3 scripts/build_ohos.py --abi arm64-v8a --no-native   # 只重打 HAP，不重编 Go 核心
+
+python3 scripts/build_ohos.py --abi arm64-v8a --all-sources # 全站源版（真果鉴）
+python3 scripts/build_ohos.py --abi arm64-v8a --all-sources --sources ~/sources/xxx  # 追加源
+~~~
+
+**站源必须显式接入，否则脚本直接拒绝出包。** 站源是编进核心库的 Go 模块，链接关系只写在构建脚本生成的 `native/go.work` 里（不入库）。不带 `--sources` 时 `app_build.link_sources` 会沿用上一次的 `go.work`，而它往往还指着 `native/sources_example`——示例站源只有假数据、不能播放，但构建全程不会报错，包也装得上，只是打开后站源列表里只有一个「示例」。`build_ohos.py` 因此在编译前和签名前各查一次链接结果，只有示例站源时直接失败；纯界面预览包加 `--allow-example` 放行。站源路径也可以写成环境变量 `GUOAPP_SOURCES`（多个用 `os.pathsep` 分隔），本地反复出包时省得每次敲 `--sources`。
+
+不加参数打出来的是红果鉴，`--all-sources` 打的是真果鉴，这条命令把三处开关一起翻：Go 核心加 `-tags=zhenguojian`，Flutter 加 `--dart-define=APP_FLAVOR=zhenguojian`，`ohos/AppScope/app.json5` 的 `bundleName` 连同各处应用名（`AppScope` 与 `entry` 的 `base`、`zh_CN`，可选 `en_US`）改成 `com.guoapp.all` / 真果鉴。包名不同，两个版本可以同时装在一台机器上，互不覆盖数据。只改 `base` 不改 `zh_CN` 会出现「包名换了、桌面图标还是红果鉴」，所以按目录扫所有语言。改的是源文件，脚本在 `finally` 里还原，构建失败也不会留下改动。要覆盖包名 / 名字就用 `ZHENGUOJIAN_PACKAGE_NAME`、`ZHENGUOJIAN_DISPLAY_NAME`、`ZHENGUOJIAN_LATIN_NAME`（拉丁名只管英文资源）。
+
+产物是 `ohos/entry/build/default/outputs/default/entry-default-unsigned.hap`，`scripts/sign_hap.py` 做本地自签名，输出 `.ohos-sign/<变体>-signed.hap`，最后复制一份到 `dist/ohos/<变体>-<abi>.hap` 备着。未配置调试签名时 `flutter build hap` 会以非零码退出，但 HAP 实际已经打好了，脚本按产物时间判断后继续签名；签名前还会开包核对 `libs/<abi>/libduanju_core.so` 在不在，避免打出只有 `libflutter.so` 的空壳包。`libs/<abi>/.flavor` 记录当前核心是哪个变体编的，`--no-native` 遇到变体不符会照旧重编，不会把上一个变体的核心混进新包。清 hvigor/ArkTS 缓存是 `--clean`，实现上是把目录挪到 `.tmp/ohos-cache-*` 而不是删——批量删除会撞上环境的 safe-delete 拦截直接让进程退出。
+
+签名材料分两种模式，由 `OHOS_DEVICE_UDID` 决定：设了 UDID 用 `UnsgnedDebugProfileTemplate.json`（`development-certificate`，只能装到该 UDID 的设备，适合联调）；没设用 `UnsgnedReleasedProfileTemplate.json`（`distribution-certificate`，不绑设备，适合分发）。两个模板的证书字段名不一样，拿 debug 模板删掉 `debug-info` 冒充 release 会被 `11015001 Require cert in bundleInfo!` 拒掉。
+
+**Go 核心有两种来源，默认从源码编。** 站源是编进核心库的 Go 模块，而真实站源所在的仓库是私有的（上游 CI 用 `SOURCES_DEPLOY_KEY` 拉取），从公开渠道拿不到源码。所以 `--release-core` 走另一条路：直接复用上游发布 APK 里已经编好的 `libduanju_core.so`，中间用一层 bionic→musl 兼容层抹平差异。
+
+~~~sh
+python3 scripts/build_ohos.py --abi arm64-v8a --all-sources --release-core
+python3 scripts/build_ohos.py --abi x86_64 --all-sources --release-core --mode debug
+~~~
+
+发布目录默认 `source-releases/`（内含 `zhenguojian-<版本>-<abi>.apk`），也可以传别的路径。这条路径只适用于 `--all-sources`——上游发布包本身就是全站源版；站源已在 `.so` 里，所以脚本跳过 `check_sources` 检查。
+
+**复用发布核心要过四关，缺一不可**（`scripts/build_ohos.py` 与 `ohos/entry/src/main/cpp/bionic_shim.c` 各承担一部分）：
+
+1. **补依赖名**。核心库的 `DT_NEEDED` 写着 `liblog.so` / `libdl.so`，鸿蒙两个都没有（logcat 不存在，`dlopen` 直接在 libc 里）。`build_shims()` 按这两个名字各编一个 `.so` 放进 `libs/<abi>/`，其中 `liblog.so` 就是兼容层本体。
+2. **改名抢符号**。musl 解析符号时先走全局作用域（主程序 + libc），再走被加载对象的依赖链，所以兼容层里导出 `sigaction` 一定会被 libc 的版本压过去。`rename_imports()` 反过来改核心库：把 `.dynstr` 里那一个 `sigaction` 字符串原地改成 `sig_ohos`（长度一致），全局作用域里没人叫这个名字，才会落到兼容层。这个改名不是可选优化——bionic 的 `struct sigaction` 是 32 字节、musl 的 152 字节，让 musl 直接处理那块内存会在写旧动作时冲掉调用者的栈帧，`dlopen` 阶段就 `SIGSEGV @0`。
+3. **短路 `inittls`**。Go 的 `runtime/cgo/gcc_android.c` 里 `inittls()` 固定去拿 bionic 的 `TLS_SLOT_APP`（= `2*sizeof(void*)` = 16），拿不到 `android_get_device_api_level` 就走兜底分支，而兜底要扫 `*(void**)(%fs-16)`——musl 这一格是 0，扫描循环用 `r14=0` 当场 `SIGSEGV`。`patch_core_tls()` 通过 `dynsym` 里的 `x_cgo_inittls` 找到它（**注意 `.data` 里那个指针是 `R_*_RELATIVE` 重定位目标，文件里值是 0，真正的入口在 `r_addend` 里**），把入口改成 `ret`（arm64 是 `bti c; ret`）。
+4. **改 `runtime.tls_g` 槽位**。`inittls` 短路后，`tls_g` 还是静态初值 16，而 16 是 bionic 的预留槽，musl 里 `%fs:16` 恰好是 `struct pthread` 的 `prev`/`next` 自指链表指针，非 0。`tls_g` 没导出，但读它的指令形态唯一（x86_64：`movq %fs:xx,%r64` 往回找 `movq tls_g(%rip)`；arm64：`MRS X0, TPIDR_EL0` + `ADRP X27` + `LDR X27,[X27,#imm]`），按 PC 相对目标反查并要求目标处当前 8 字节 == 16 来排除误匹配。改成的值见 `TLS_G_SLOTS`：
+
+   | ABI | 偏移 | 依据 |
+   | --- | --- | --- |
+   | x86_64 | `+216` | 模拟器实测。`struct pthread` 的 `+208` 是 `signal_stack`，`+216` 是 `gwp_asan_tls`（头文件注释写明「musl 不支持 libc 用 tls，这里给 gwp_asan 预留了槽」）；未开插桩时恒 0，灌魔数跑完建线程/分配/stdio/socket/key 一整套压力后不被改写。 |
+   | arm64-v8a | `-136` | 按头文件字段序推导。arm64 的结构体在 TP 下方，`hwasan_tls` 按编译器契约定在 `tp-144`，紧跟其后的 `tls_slots[0]` 就是 `tp-136`；`tls_slots[0..4]` 与 `[10..14]` 是给内核 ABI 增长预留的空位。**没有真机验证过。** |
+
+   补丁是幂等的：入口已经是 `ret` 桩时只校验 `tls_g` 是否等于预期槽位，不重复改。
+
+**还有一处必须由调用方配合**：Go 的 `cgocallback` 用「TLS 里的 g 是否为 0」判断这个线程是不是第一次进 Go，而 `dropm`（负责把 g 清回 0）只在两个时机跑——C 线程主动调 `cgocallback(nil, ...)`，或 Go 注册的 pthread key 析构器。Flutter 的 `DartWorker` 是 pthread 建完、函数返回就退出的普通线程，两者都不会触发，于是它 `pthread` 结构体里的 g 槽带着旧值被 musl 回收；下一个 `DartWorker` 复用同一块内存，一进 `cgocallback` 就读到残留 g，跳过 `needm` 直接取 `m.curg`——那个 m 早已还回空闲池、`curg` 为 0，于是在 `56(%rsi)` 处 `SIGSEGV @0x38`（实测崩溃点固定在 `libduanju_core.so+0x31316d`，崩在 `DartWorker` 线程）。所以 `lib/core_bridge.dart` 在每次发起请求前调兼容层的 `guoapp_tls_enter()` 把槽清零、返回后 `guoapp_tls_leave()`，让每个线程都走 `needm` 这条正规路径。用 thread-local 深度计数兜住嵌套，避免内层把外层的 g 清掉。**这一步不能省**，否则界面用起来必崩——只是崩溃时机取决于线程复用，看起来像随机闪退。
+
+兼容层还导出了 `guoapp_tls_state()`，把线程指针、加载时槽值、当前槽值、冲突标记写进 hilog，arm64 没有真机时靠这条日志确认偏移没撞上别人的字段（正常输出形如 `tls tp=0x... off=-136 slot=0x0`）。
+
+**从源码编时的工具链要求**：必须用 `OpenHarmony-SIG/ohos_golang_go`（`release-branch.go1.24`）。鸿蒙的 libc 是 musl，主线 Go 在 arm64 上用 initial-exec 模型读 `runtime.tls_g`，产出 `R_AARCH64_TLS_TPREL64` 和 `STATIC_TLS` 标记，`dlopen` 时直接报 `initial-exec TLS resolves to dynamic definition`（golang/go#54805，`-tls=GD` 的 PR 还没合）。该 fork 增加 `GOOS=openharmony`，把 arm64 的 TLS 访问降到 General Dynamic / TLSDESC，musl 才肯加载。`build_native.py --platform ohos` 会自动切到 fork，没装时提示路径。fork 只实现 `openharmony/arm64`，所以 x86_64 只能用主线 Go 编 `linux/amd64`：模拟器里界面能跑，但 `libduanju_core.so` 会在 `dlopen` 阶段被 musl 拒掉，只适合验 UI。**要真跑核心就用 `--release-core`**，它绕开了这条限制。
+
+`duanju/device` 通道在鸿蒙上由 `ohos/entry/src/main/ets/entryability/DeviceChannel.ets` 实现，在 `EntryAbility.configureFlutterEngine` 里注册，包含亮度、音量、横竖屏、电量、视频导出、文件保存与选择。平台差异：
+
+- 没有 FFmpeg：`lib/media_pipeline.dart` 直接抛「暂不支持本地转码」，保留原始分片；合并视频改成先写临时文件再用系统保存界面导出。
+- `flutter_foreground_task`、`window_manager`、`file_picker`、`dynamic_color` 都没有鸿蒙实现：后台下载和前台服务在鸿蒙上不启用，窗口相关调用靠 try/catch 降级，`file_picker` 的保存 / 选择统一走 `lib/platform_files.dart` → `duanju/device` 通道（ArkTS 侧用 `DocumentViewPicker`）。
+- 下载目录迁移只在应用自己的目录里选（沙箱外不申请受限权限写不进去），和 Android 的做法一致。
 
 ## 检查与测试
 
