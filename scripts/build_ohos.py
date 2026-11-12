@@ -322,6 +322,16 @@ TLS_G_SLOTS = {
     'arm64-v8a': -136,
 }
 
+# arm64 那一格还没在真机上验过。拿到设备后如果要换槽位，用环境变量覆盖即可，
+# 不必改本文件：
+#   GUO_OHOS_TLS_SLOT_ARM64=-120 python scripts/build_ohos.py --all-sources \
+#       --release-core --abi arm64-v8a
+# 支持 0x 前缀。装上去用 `hdc shell hilog -T guoapp` 看
+# `tls tp=... off=... slot=...` 这行：slot 恒为 0 且应用跑得稳才算选对了。
+_tls_override = os.environ.get('GUO_OHOS_TLS_SLOT_ARM64')
+if _tls_override:
+    TLS_G_SLOTS['arm64-v8a'] = int(_tls_override, 0)
+
 TLS_G_INIT = 16          # runtime·tls_g 的静态初值（Go 源码 asm_*_amd64/arm64.s）
 
 

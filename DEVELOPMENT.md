@@ -88,6 +88,15 @@ python3 scripts/build_ohos.py --abi x86_64 --all-sources --release-core --mode d
 
    补丁是幂等的：入口已经是 `ret` 桩时只校验 `tls_g` 是否等于预期槽位，不重复改。
 
+   arm64 那一格尚无真机可验，需要换槽位时用环境变量覆盖，不用改脚本：
+
+   ```bash
+   GUO_OHOS_TLS_SLOT_ARM64=-120 python3 scripts/build_ohos.py \
+       --all-sources --release-core --abi arm64-v8a --install
+   ```
+
+   支持 `0x` 前缀。装到设备后用 `hdc shell hilog -T guoapp` 看启动那行日志，`slot=` 恒为 `0x0` 且反复进出页面不崩才算选对。
+
 **还有一处必须由调用方配合**：Go 的 `cgocallback` 用「TLS 里的 g 是否为 0」判断这个线程是不是第一次进 Go，而 `dropm`（负责把 g 清回 0）只在两个时机跑——C 线程主动调 `cgocallback(nil, ...)`，或 Go 注册的 pthread key 析构器。Flutter 的 `DartWorker` 是 pthread 建完、函数返回就退出的普通线程，两者都不会触发，于是它 `pthread` 结构体里的 g 槽带着旧值被 musl 回收；下一个 `DartWorker` 复用同一块内存，一进 `cgocallback` 就读到残留 g，跳过 `needm` 直接取 `m.curg`——那个 m 早已还回空闲池、`curg` 为 0，于是在 `56(%rsi)` 处 `SIGSEGV @0x38`（实测崩溃点固定在 `libduanju_core.so+0x31316d`，崩在 `DartWorker` 线程）。所以 `lib/core_bridge.dart` 在每次发起请求前调兼容层的 `guoapp_tls_enter()` 把槽清零、返回后 `guoapp_tls_leave()`，让每个线程都走 `needm` 这条正规路径。用 thread-local 深度计数兜住嵌套，避免内层把外层的 g 清掉。**这一步不能省**，否则界面用起来必崩——只是崩溃时机取决于线程复用，看起来像随机闪退。
 
 兼容层还导出了 `guoapp_tls_state()`，把线程指针、加载时槽值、当前槽值、冲突标记写进 hilog，arm64 没有真机时靠这条日志确认偏移没撞上别人的字段（正常输出形如 `tls tp=0x... off=-136 slot=0x0`）。
